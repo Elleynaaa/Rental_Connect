@@ -15,3 +15,4 @@ django-clearcache==1.2.1
 djangorestframework
 djoser
 djangorestframework-simplejwt
+django-cors-headers
