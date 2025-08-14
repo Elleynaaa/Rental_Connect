@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Payment Page</title>
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: url('https://images.unsplash.com/photo-1563013544-824ae1b704d3') no-repeat center center fixed;
+      background-size: cover;
+    }
+    .container {
+      background-color: rgba(255, 255, 255, 0.95);
+      max-width: 400px;
+      margin: 80px auto;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 12px rgba(0,0,0,0.2);
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 10px;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background: green;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    button:hover {
+      background: darkgreen;
+    }
+    #statusMessage {
+      margin-top: 15px;
+      text-align: center;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Make a Payment</h2>
+
+  <div id="bookingDetails" style="display:none;">
+    <p><strong>Booking ID:</strong> <span id="bookingId"></span></p>
+    <p><strong>Tenant Email:</strong> <span id="tenantEmail"></span></p>
+  </div>
+
+  <form id="paymentForm">
+    <label for="phoneInput">Phone Number:</label>
+    <input type="text" id="phoneInput" placeholder="2547XXXXXXXX" required />
+
+    <label for="amountInput">Amount (KES)</label>
+    <input type="number" id="amountInput" name="amount" min="1" required />
+
+    <button type="submit">Pay Now</button>
+  </form>
+
+  <div id="statusMessage"></div>
+</div>
+
+<script>
+  const NODE_BASE = 'http://localhost:3000';
+  const API_BASE = 'http://127.0.0.1:8000/api';
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const bookingInfo = JSON.parse(localStorage.getItem('bookingInfo') || '{}');
+    if (!bookingInfo.id || !bookingInfo.email) {
+      alert('No booking info found. Please book a property first.');
+      window.location.href = 'booking.html';
+      return;
+    }
+
+    document.getElementById('bookingDetails').style.display = 'block';
+    document.getElementById('bookingId').textContent = bookingInfo.id;
+    document.getElementById('tenantEmail').textContent = bookingInfo.email;
+
+    try {
+      const propRes = await fetch(`${API_BASE}/properties/${bookingInfo.property}/`);
+      if (propRes.ok) {
+        const propData = await propRes.json();
+        document.getElementById('amountInput').value = propData.price_per_month;
+      }
+    } catch (err) {
+      console.warn('Could not fetch property price:', err);
+    }
+  });
+
+  document.getElementById('paymentForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const phoneNumber = document.getElementById('phoneInput').value.trim();
+    const amount = document.getElementById('amountInput').value;
+    const bookingInfo = JSON.parse(localStorage.getItem('bookingInfo') || '{}');
+    const bookingId = bookingInfo.id;
+
+    if (!phoneNumber || !amount) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    const statusEl = document.getElementById('statusMessage');
+    statusEl.textContent = 'Waiting for M-Pesa payment...';
+
+    try {
+      // Initiate STK Push via Node server
+      const res = await fetch(`${NODE_BASE}/initiate-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber, amount })
+      });
+
+      if (!res.ok) throw new Error('Failed to initiate payment');
+
+      const data = await res.json();
+      console.log('STK Push Response:', data);
+
+      statusEl.textContent = 'STK Push sent! Please complete payment on your phone.';
+
+      // Now poll or wait for confirmation from backend
+      // In production, you’d likely use webhooks / socket.io
+      // Here we simulate with a confirm button or interval polling
+      alert('After completing payment on your phone, click OK to confirm.');
+
+      // Update backend only after payment success
+      const updateRes = await fetch(`${API_BASE}/payments/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          booking: bookingId,
+          amount: amount,
+          payment_status: 'Completed'
+        })
+      });
+
+      if (!updateRes.ok) throw new Error('Failed to record payment in database');
+
+      statusEl.textContent = 'Payment confirmed! Thank you.';
+      localStorage.removeItem('bookingInfo');
+      document.getElementById('paymentForm').reset();
+
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent = 'Payment failed. Please try again.';
+    }
+  });
+</script>
+
+</body>
+</html>

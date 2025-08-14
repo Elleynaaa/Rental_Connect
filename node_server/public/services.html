@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Our Services - Rental Connect</title>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet" />
+    <style>
+        body {
+            background-image: url('https://images.unsplash.com/photo-1600585154356-cb4b0b51f4d4?auto=format&fit=crop&w=1350&q=80');
+            background-size: cover;
+            background-position: center;
+            font-family: Arial, sans-serif;
+            color: #000;
+        }
+
+        .overlay {
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 50px 15px;
+        }
+
+        .service-card {
+            margin-bottom: 30px;
+        }
+
+        .card img {
+            height: 200px;
+            object-fit: cover;
+        }
+    </style>
+</head>
+
+<script>
+  async function loadProperties() {
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/properties/');
+      if (!res.ok) throw new Error('Failed to load properties');
+      const properties = await res.json();
+
+      const container = document.querySelector('.row');
+      container.innerHTML = ''; // clear existing cards
+
+      properties.forEach(property => {
+        const card = document.createElement('div');
+        card.classList.add('col-md-4', 'service-card');
+
+        card.innerHTML = `
+          <div class="card shadow-sm h-100">
+            ${property.image_url ? `<img src="${property.image_url}" alt="${property.name}" class="card-img-top" style="height:200px;object-fit:cover;">` : ''}
+            <div class="card-body">
+              <h5 class="card-title">${property.name}</h5>
+              <p class="card-text">${property.description}</p>
+              <p class="card-text"><strong>Price: </strong> kes${property.price_per_month}</p>
+            </div>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+    } catch (err) {
+      console.error(err);
+      alert('Could not load properties.');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', loadProperties);
+</script>
+
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">Rental Connect</a>
+            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+                    aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+              <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ml-auto">
+                    <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="aboutus.html">About</a></li>
+                    <li class="nav-item"><a class="nav-link" href="contact.html">Contact</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="overlay">
+        <div class="container">
+            <h1 class="text-center mb-5">Our Properties</h1>
+
+            <div class="row">
+                <div class="col-md-4 service-card">
+                    <div class="card shadow-sm h-100">
+                        <img src="images/appt1.jpeg" alt="Apartment" class="card-img-top" />
+                        <div class="card-body">
+                            <h5 class="card-title">One Bedroom</h5>
+                            <p class="card-text">Located in a nice neighbourhood and equipped with all the amenities.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 service-card">
+                    <div class="card shadow-sm h-100">
+                        <img src="images/appt3.jpeg" alt="Apartment 3" class="card-img-top" />
+                        <div class="card-body">
+                            <h5 class="card-title">Apartment 3 located at Gate A</h5>
+                            <p class="card-text">Comfortable and conveniently located.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 service-card">
+                    <div class="card shadow-sm h-100">
+                        <img src="images/Bd3.jpeg" alt="Bedsitter" class="card-img-top" />
+                        <div class="card-body">
+                            <h5 class="card-title">Bedsitter</h5>
+                            <p class="card-text">Situated in a nice area, very spacious with free Wi-Fi and all amenities available.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 service-card">
+                    <div class="card shadow-sm h-100">
+                        <img src="images/1Bappt3.jpeg" alt="One Bedroom" class="card-img-top" />
+                        <div class="card-body">
+                            <h5 class="card-title">One Bedroom</h5>
+                            <p class="card-text">Full-time security available, near a shopping center, very spacious, and equipped with all available amenities.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 service-card">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Free Wi-Fi</h5>
+                            <p class="card-text">High-speed internet access available throughout the property at no cost.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 service-card">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Private Parking</h5>
+                            <p class="card-text">Free, secure on-site parking for all tenants.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

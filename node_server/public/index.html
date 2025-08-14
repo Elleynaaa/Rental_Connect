@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Virgil Rental Connect</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet"/>
+
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background: url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1950&q=80') no-repeat center center fixed;
+            background-size: cover;
+        }
+
+        .form-container {
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 600px;
+            margin: auto;
+            margin-top: 80px;
+        }
+
+        h1, h2 {
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .form-control {
+            margin-bottom: 15px;
+        }
+
+        .error-message {
+            color: #d9534f;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">Virgil Rental Connect</a>
+            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ml-auto">
+                    <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="aboutus.html">About</a></li>
+                    <li class="nav-item"><a class="nav-link" href="contact.html">Contact</a></li>
+                    <li class="nav-item"><a class="nav-link" href="services.html">Services</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="form-container">
+        <h1>Welcome To Rental Connect</h1>
+
+        <h2 class="mt-4">Tenant Registration</h2>
+
+        <div id="errorMsg" class="error-message"></div>
+
+        <form id="tenantForm">
+            <input type="text" id="firstName" class="form-control" placeholder="Enter your first name" required>
+            <input type="text" id="lastName" class="form-control" placeholder="Enter your last name" required>
+            <input type="email" id="email" class="form-control" placeholder="Enter your email" required>
+            <input type="tel" id="phoneNumber" class="form-control" placeholder="Enter your phone number" required>
+            <input type="password" id="password" class="form-control" placeholder="Enter your password" required>
+
+            <button type="submit" class="btn btn-success btn-block">Register</button>
+        </form>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        const tenantForm = document.getElementById('tenantForm');
+        const errorMsg = document.getElementById('errorMsg');
+
+        tenantForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorMsg.textContent = '';
+
+            const first_name = document.getElementById('firstName').value.trim();
+            const last_name = document.getElementById('lastName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const phone_number = document.getElementById('phoneNumber').value.trim();
+            const password = document.getElementById('password').value.trim();  // currently not sent to backend
+
+            if (!first_name || !last_name || !email || !phone_number || !password) {
+                errorMsg.textContent = 'Please fill in all fields.';
+                return;
+            }
+
+            // Prepare the payload expected by your Django backend
+            const payload = {
+                username: email,
+                first_name,
+                last_name,
+                email,
+                phone_number,
+                password
+            };
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/register/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    errorMsg.textContent = errorData.detail || 'Registration failed. Try again.';
+                    return;
+                }
+
+                const tenant = await response.json();
+
+                // Save tenant info to localStorage for next steps
+                localStorage.setItem('tenant', JSON.stringify(tenant));
+
+                alert('Registration successful! You can now proceed to booking.');
+                window.location.href = 'booking.html';  // your booking page
+
+            } catch (error) {
+                console.error(error);
+                errorMsg.textContent = 'Network error. Please try again.';
+            }
+        });
+    </script>
+</body>
+</html>
