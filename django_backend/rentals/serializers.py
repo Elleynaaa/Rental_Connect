@@ -12,8 +12,11 @@ class BookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
         fields = '__all__'
-
 class PaymentSerializer(serializers.ModelSerializer):
+    booking_id = serializers.IntegerField(source='booking.id', read_only=True)
+    tenant_email = serializers.EmailField(source='booking.tenant.user.email', read_only=True)
+    booking_status = serializers.CharField(source='booking.status', read_only=True)
+
     class Meta:
         model = Payment
         fields = '__all__'

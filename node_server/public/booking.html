@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Book Your Property - Virgil Rental Connect</title>
   <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/jwt-decode@3.1.2/build/jwt-decode.min.js"></script>
   <style>
     body {
       background: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1950&q=80') no-repeat center center fixed;
@@ -74,8 +75,7 @@
   <div class="container">
     <h2>Book Your Property</h2>
     <form id="bookingForm">
-      <label for="email">Email:</label>
-      <input type="email" id="email" required placeholder="Your email" class="form-control" />
+      <!-- removed email field -->
 
       <label for="timeSlot">Time Slot:</label>
       <select id="timeSlot" required class="form-control">
@@ -114,6 +114,14 @@
   <script>
     const API_BASE = 'http://127.0.0.1:8000/api';
     const NODE_BASE = 'http://localhost:3000';
+    const token = localStorage.getItem("token");
+    const userEmail = localStorage.getItem("userEmail");
+
+    if (!token || !userEmail) {
+      alert("Please log in first!");
+      localStorage.clear();
+      window.location.href = "login.html";
+    }
 
     async function fetchProperties() {
       try {
@@ -141,20 +149,19 @@
         e.preventDefault();
         document.getElementById('error').textContent = '';
 
-        const email = document.getElementById('email').value.trim();
         const timeSlot = document.getElementById('timeSlot').value;
         const roomType = document.getElementById('roomType').value;
         const propertyId = document.getElementById('propertySelect').value;
         const bookingDate = document.getElementById('bookingDate').value;
 
-        if (!email || !timeSlot || !roomType || !propertyId || !bookingDate) {
+        if (!timeSlot || !roomType || !propertyId || !bookingDate) {
           document.getElementById('error').textContent = 'Please fill in all fields.';
           return;
         }
 
         try {
-          // Search tenant by email
-          const tenantRes = await fetch(`${API_BASE}/tenants/?search=${encodeURIComponent(email)}`);
+          // Find tenant by email
+          const tenantRes = await fetch(`${API_BASE}/tenants/?search=${encodeURIComponent(userEmail)}`);
           if (!tenantRes.ok) throw new Error('Failed to search tenant');
           const tenants = await tenantRes.json();
 
@@ -167,7 +174,7 @@
           // Prepare booking payload
           const bookingPayload = {
             property: propertyId,
-            email,
+            email: userEmail,
             booking_date: bookingDate,
             time_slot: timeSlot,
             room_type: roomType,
@@ -176,7 +183,10 @@
 
           const bookingRes = await fetch(`${API_BASE}/bookings/`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
             body: JSON.stringify(bookingPayload)
           });
 
@@ -195,7 +205,7 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              email,
+              email: userEmail,
               roomType,
               timeSlot
             })

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Login - Virgil Rental Connect</title>
+
+    <!-- Bootstrap -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet"/>
+
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background: url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1950&q=80') no-repeat center center fixed;
+            background-size: cover;
+        }
+
+        .form-container {
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 500px;
+            margin: auto;
+            margin-top: 100px;
+        }
+
+        h2 {
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .error-message {
+            color: #d9534f;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">Virgil Rental Connect</a>
+        </div>
+    </nav>
+
+    <!-- Login Form -->
+    <div class="form-container">
+        <h2>Tenant Login</h2>
+        <div id="errorMsg" class="error-message"></div>
+
+        <form id="loginForm">
+            <input type="email" id="email" class="form-control" placeholder="Enter your email" required>
+            <input type="password" id="password" class="form-control" placeholder="Enter your password" required>
+            <button type="submit" class="btn btn-primary btn-block">Login</button>
+        </form>
+
+        <p class="text-center mt-3">
+            Don’t have an account? 
+            <a href="index.html">Register here</a>
+        </p>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jwt-decode@3.1.2/build/jwt-decode.min.js"></script>
+
+    <script>
+        const loginForm = document.getElementById('loginForm');
+        const errorMsg = document.getElementById('errorMsg');
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorMsg.textContent = '';
+
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value.trim();
+
+            if (!email || !password) {
+                errorMsg.textContent = 'Please fill in all fields.';
+                return;
+            }
+
+            const payload = { username: email, password };
+
+            try {
+                // Use your new token endpoint
+                const response = await fetch('http://127.0.0.1:8000/api/token/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    errorMsg.textContent = errorData.detail || 'Login failed. Please try again.';
+                    return;
+                }
+
+                const data = await response.json();
+
+                // Save access token
+                const token = data.access;
+                localStorage.setItem('token', token);
+
+                // Decode token to extract email (thanks to custom claim)
+                try {
+                    const decoded = jwt_decode(token);
+                    if (decoded.email) {
+                        localStorage.setItem('userEmail', decoded.email);
+                    }
+                } catch (err) {
+                    console.error("Failed to decode token", err);
+                }
+
+                alert('Login successful!');
+                window.location.href = 'booking.html';
+
+            } catch (error) {
+                console.error(error);
+                errorMsg.textContent = 'Network error. Please try again.';
+            }
+        });
+    </script>
+
+</body>
+</html>

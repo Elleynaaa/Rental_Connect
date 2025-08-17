@@ -7,7 +7,7 @@ const axios = require('axios');
 const path = require('path');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(bodyParser.json());
@@ -20,18 +20,18 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Nodemailer Transporter (for confirmation emails) 
+// Nodemailer Transporter (for confirmation emails)
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER, 
-    pass: process.env.EMAIL_PASS  
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
   }
 });
 
 // Function to generate M-Pesa password dynamically
 function generateMpesaPassword() {
-  const timestamp = new Date().toISOString().replace(/[-T:.Z]/g, '').slice(0, 14); 
+  const timestamp = new Date().toISOString().replace(/[-T:.Z]/g, '').slice(0, 14); // yyyyMMddHHmmss
   const password = Buffer.from(
     process.env.MPESA_LIPA_SHORTCODE + process.env.MPESA_PASSKEY + timestamp
   ).toString('base64');
@@ -39,36 +39,24 @@ function generateMpesaPassword() {
   return { password, timestamp };
 }
 
-// M-Pesa: Get Access Token 
+// M-Pesa: Get Access Token
 async function getAccessToken() {
   const auth = Buffer.from(
     `${process.env.MPESA_LIPA_KEY}:${process.env.MPESA_LIPA_SECRET}`
   ).toString('base64');
 
-  try {
-    const response = await axios.get(
-      'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials',
-      {
-        headers: { Authorization: `Basic ${auth}` }
-      }
-    );
-    console.log('Access Token:', response.data.access_token);
-    return response.data.access_token;
-  } catch (error) {
-    console.error('Failed to get access token:', error.message);
-    throw new Error('Could not get M-Pesa access token');
-  }
+  const url = 'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials';
+
+  const res = await axios.get(url, {
+    headers: { Authorization: `Basic ${auth}` }
+  });
+  return res.data.access_token;
 }
 
-// M-Pesa: Initiate STK Push 
-async function initiateStkPush(phoneNumber, amount) {
+// M-Pesa: Initiate STK Push (now includes bookingId + email)
+async function initiateStkPush(phoneNumber, amount, bookingId, email) {
   const token = await getAccessToken();
   const { password, timestamp } = generateMpesaPassword();
-
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    'Content-Type': 'application/json'
-  };
 
   const payload = {
     BusinessShortCode: process.env.MPESA_LIPA_SHORTCODE,
@@ -79,39 +67,37 @@ async function initiateStkPush(phoneNumber, amount) {
     PartyA: phoneNumber,
     PartyB: process.env.MPESA_LIPA_SHORTCODE,
     PhoneNumber: phoneNumber,
-    CallBackURL: 'https://yourdomain.com/callback', // Change before production
-    AccountReference: `Booking #${Date.now()}`,
+    CallBackURL: process.env.MPESA_CALLBACK_URL || 'http://localhost:3000/callback',
+    AccountReference: `BOOKING_${bookingId}_${email}`,   // Embed bookingId + email here
     TransactionDesc: 'Payment for room booking',
   };
 
-  try {
-    const response = await axios.post(
-      'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials',
-      payload,
-      { headers }
-    );
-    console.log('M-Pesa STK Push Response:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error(
-      'M-Pesa STK Push Error:',
-      error.response ? error.response.data : error
-    );
-    throw new Error('M-Pesa STK Push failed');
-  }
+  const res = await axios.post(
+    'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest',
+    payload,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+
+  return res.data;
 }
 
-//  API Routes 
+/* ---------------- API ROUTES ---------------- */
 
 // Send booking confirmation email
-app.post('/sendConfirmationEmail', (req, res) => {
-  const { email, roomType, timeSlot } = req.body;
+app.post('/sendConfirmationEmail', async (req, res) => {
+  try {
+    const { email, roomType, timeSlot } = req.body;
 
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to: email,
-    subject: 'Booking Confirmation',
-    text: `Dear customer,
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Booking Confirmation',
+      text: `Dear customer,
 
 Your booking for a ${roomType} has been confirmed for the time slot: ${timeSlot}.
 
@@ -119,44 +105,94 @@ Thank you for choosing us!
 
 Best regards,
 Your Hotel Name`
-  };
+    };
 
-  transporter.sendMail(mailOptions, (error) => {
-    if (error) {
-      console.error('Email sending error:', error);
-      return res.status(500).json({ success: false, message: 'Error sending email' });
-    }
+    await transporter.sendMail(mailOptions);
     res.status(200).json({ success: true, message: 'Confirmation email sent' });
-  });
+  } catch (err) {
+    console.error('Email sending error:', err);
+    res.status(500).json({ success: false, message: 'Error sending email' });
+  }
 });
 
-// Initiate M-Pesa payment
+// Initiate M-Pesa payment (now includes bookingId + email)
 app.post('/initiate-payment', async (req, res) => {
-  const { phoneNumber, amount } = req.body;
   try {
-    const paymentResponse = await initiateStkPush(phoneNumber, amount);
-    res.json(paymentResponse);
+    const { phoneNumber, amount, bookingId, email } = req.body;
+
+    const paymentResponse = await initiateStkPush(phoneNumber, amount, bookingId, email);
+
+    // Return response (with booking reference info included)
+    res.json({
+      ...paymentResponse,
+      bookingId,
+      email
+    });
   } catch (error) {
+    console.error('STK Push error:', error?.response?.data || error.message);
     res.status(500).json({ status: 'error', message: 'Failed to initiate payment' });
   }
 });
 
-// M-Pesa Callback handler
-app.post('/callback', (req, res) => {
-  const paymentData = req.body;
-  console.log('Payment Callback Response:', paymentData);
+// M-Pesa Callback handler (from Safaricom)
+app.post('/callback', async (req, res) => {
+  try {
+    console.log('📥 Raw callback:', JSON.stringify(req.body, null, 2));
 
-  if (paymentData.ResultCode === 0) {
-    console.log('Payment was successful!');
-    // Update booking status or send confirmation email
-  } else {
-    console.log('Payment failed or was canceled.');
+    const stkCallback = req.body?.Body?.stkCallback;
+    if (!stkCallback) {
+      console.error('Invalid callback payload');
+      return res.status(200).json({ message: 'Received (invalid payload)' });
+    }
+
+    const resultCode = stkCallback.ResultCode;
+    const resultDesc = stkCallback.ResultDesc;
+
+    let amount = null;
+    let mpesaReceipt = null;
+    let phoneNumber = null;
+    let transactionDate = null;
+    let accountRef = stkCallback?.MerchantRequestID || ''; // fallback
+
+    const items = stkCallback.CallbackMetadata?.Item || [];
+    for (const item of items) {
+      if (item.Name === 'Amount') amount = item.Value;
+      if (item.Name === 'MpesaReceiptNumber') mpesaReceipt = item.Value;
+      if (item.Name === 'PhoneNumber') phoneNumber = item.Value;
+      if (item.Name === 'TransactionDate') transactionDate = item.Value;
+      if (item.Name === 'AccountReference') accountRef = item.Value;
+    }
+
+    // Extract bookingId + email from "BOOKING_1234_email"
+    let bookingId = null;
+    let email = null;
+    if (accountRef && accountRef.startsWith('BOOKING_')) {
+      const parts = accountRef.split('_');
+      bookingId = parts[1];
+      email = parts.slice(2).join('_'); // handles underscores in email
+    }
+
+    // Forward to Django
+    await axios.post('http://localhost:8000/api/payments/callback/', {
+      booking_id: bookingId,
+      email: email,
+      result_code: resultCode,
+      result_desc: resultDesc,
+      amount,
+      mpesa_receipt: mpesaReceipt,
+      phone_number: phoneNumber,
+      transaction_date: transactionDate,
+      raw_callback: req.body
+    });
+
+    res.status(200).json({ message: 'Callback received' });
+  } catch (err) {
+    console.error('❌ Error handling callback:', err?.response?.data || err.message);
+    res.status(200).json({ message: 'Callback processed with errors' });
   }
-
-  res.status(200).send('Payment processed');
 });
 
 // Start the Server
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  console.log(`🚀 Server is running on port ${port}`);
 });

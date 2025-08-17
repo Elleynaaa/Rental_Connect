@@ -45,6 +45,11 @@
             text-align: center;
             margin-bottom: 15px;
         }
+
+        .login-link {
+            text-align: center;
+            margin-top: 15px;
+        }
     </style>
 </head>
 <body>
@@ -86,6 +91,11 @@
 
             <button type="submit" class="btn btn-success btn-block">Register</button>
         </form>
+
+        <!-- ✅ Login link -->
+        <div class="login-link">
+            <p>Already have an account? <a href="login.html">Login here</a></p>
+        </div>
     </div>
 
     <!-- Bootstrap JS -->
@@ -104,14 +114,13 @@
             const last_name = document.getElementById('lastName').value.trim();
             const email = document.getElementById('email').value.trim();
             const phone_number = document.getElementById('phoneNumber').value.trim();
-            const password = document.getElementById('password').value.trim();  // currently not sent to backend
+            const password = document.getElementById('password').value.trim();
 
             if (!first_name || !last_name || !email || !phone_number || !password) {
                 errorMsg.textContent = 'Please fill in all fields.';
                 return;
             }
 
-            // Prepare the payload expected by your Django backend
             const payload = {
                 username: email,
                 first_name,
@@ -135,13 +144,10 @@
                 }
 
                 const tenant = await response.json();
-
-                // Save tenant info to localStorage for next steps
                 localStorage.setItem('tenant', JSON.stringify(tenant));
 
                 alert('Registration successful! You can now proceed to booking.');
-                window.location.href = 'booking.html';  // your booking page
-
+                window.location.href = 'booking.html';
             } catch (error) {
                 console.error(error);
                 errorMsg.textContent = 'Network error. Please try again.';

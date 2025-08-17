@@ -83,6 +83,7 @@
 <script>
   const NODE_BASE = 'http://localhost:3000';
   const API_BASE = 'http://127.0.0.1:8000/api';
+  const token = localStorage.getItem("token");
 
   document.addEventListener('DOMContentLoaded', async () => {
     const bookingInfo = JSON.parse(localStorage.getItem('bookingInfo') || '{}');
@@ -113,7 +114,6 @@
     const phoneNumber = document.getElementById('phoneInput').value.trim();
     const amount = document.getElementById('amountInput').value;
     const bookingInfo = JSON.parse(localStorage.getItem('bookingInfo') || '{}');
-    const bookingId = bookingInfo.id;
 
     if (!phoneNumber || !amount) {
       alert('Please fill in all fields');
@@ -128,7 +128,13 @@
       const res = await fetch(`${NODE_BASE}/initiate-payment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber, amount })
+        body: JSON.stringify({
+          phoneNumber,
+          amount,
+          bookingId: bookingInfo.id,
+          email: bookingInfo.email,
+          token // forward JWT so Node can use it to update Django
+        })
       });
 
       if (!res.ok) throw new Error('Failed to initiate payment');
@@ -138,27 +144,7 @@
 
       statusEl.textContent = 'STK Push sent! Please complete payment on your phone.';
 
-      // Now poll or wait for confirmation from backend
-      // In production, you’d likely use webhooks / socket.io
-      // Here we simulate with a confirm button or interval polling
-      alert('After completing payment on your phone, click OK to confirm.');
-
-      // Update backend only after payment success
-      const updateRes = await fetch(`${API_BASE}/payments/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          booking: bookingId,
-          amount: amount,
-          payment_status: 'Completed'
-        })
-      });
-
-      if (!updateRes.ok) throw new Error('Failed to record payment in database');
-
-      statusEl.textContent = 'Payment confirmed! Thank you.';
-      localStorage.removeItem('bookingInfo');
-      document.getElementById('paymentForm').reset();
+      alert('Once you confirm payment on your phone, our system will update automatically.');
 
     } catch (err) {
       console.error(err);
