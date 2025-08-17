@@ -47,6 +47,32 @@
       color: #d9534f;
       text-align: center;
     }
+
+    .navbar {
+    position: relative; /* ensures it's above the overlay */
+    z-index: 2;
+    background-color: #343a40 !important; /* Bootstrap dark bg fallback */
+    }
+
+    .navbar .nav-link {
+        color: #fff !important; /* forces links to be visible */
+    }
+
+    .navbar .nav-item.active .nav-link {
+        font-weight: bold;
+        text-decoration: underline;
+    }
+
+    .navbar .navbar-brand {
+        color: #fff !important;
+    }
+
+    .navbar-collapse {
+    background-color: #343a40; /* dark bg for collapsed menu */
+    }
+
+
+
   </style>
 </head>
 <body>
