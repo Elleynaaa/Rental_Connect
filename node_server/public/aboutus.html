@@ -65,6 +65,7 @@
                     <li class="nav-item active"><a class="nav-link" href="aboutus.html">About</a></li>
                     <li class="nav-item"><a class="nav-link" href="contact.html">Contact</a></li>
                     <li class="nav-item"><a class="nav-link" href="services.html">Services</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" id="logoutBtn">Logout</a></li>
                 </ul>
             </div>
         </div>
@@ -142,6 +143,21 @@
             document.getElementById('rating').value = '';
             document.getElementById('reviewText').value = '';
         });
+        const tk = localStorage.getItem("token");
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        if (logoutBtn) {
+        if (!tk) {
+            logoutBtn.style.display = 'none'; // hide if not logged in
+        } else {
+            logoutBtn.style.display = 'block'; // show if logged in
+            logoutBtn.addEventListener('click', () => {
+            localStorage.clear();
+            window.location.href = 'login.html';
+            });
+        }
+        }
+
     </script>
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
