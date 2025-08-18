@@ -160,7 +160,7 @@
         propertySelect.innerHTML = '<option value="" disabled selected>Select a property</option>';
 
         properties.forEach(property => {
-          propertySelect.innerHTML += `<option value="${property.id}">${property.name} - $${property.price_per_month}/month</option>`;
+          propertySelect.innerHTML += `<option value="${property.id}">${property.name} - Ksh${property.price_per_month}/month</option>`;
         });
       } catch (error) {
         console.error(error);
