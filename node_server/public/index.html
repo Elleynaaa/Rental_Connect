@@ -101,8 +101,10 @@
     <!-- Bootstrap JS -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jwt-decode@3.1.2/build/jwt-decode.min.js"></script>
 
     <script>
+        const API_BASE = "http://127.0.0.1:8000/api";
         const tenantForm = document.getElementById('tenantForm');
         const errorMsg = document.getElementById('errorMsg');
 
@@ -131,7 +133,8 @@
             };
 
             try {
-                const response = await fetch('http://127.0.0.1:8000/api/register/', {
+                // Register user
+                const response = await fetch(`${API_BASE}/register/`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -143,11 +146,35 @@
                     return;
                 }
 
-                const tenant = await response.json();
-                localStorage.setItem('tenant', JSON.stringify(tenant));
+                // ✅ Auto-login after successful registration
+                const loginRes = await fetch(`${API_BASE}/token/`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username: email, password })
+                });
 
-                alert('Registration successful! You can now proceed to booking.');
-                window.location.href = 'booking.html';
+                if (!loginRes.ok) {
+                    alert("Registered successfully. Please login manually.");
+                    window.location.href = "login.html";
+                    return;
+                }
+
+                const loginData = await loginRes.json();
+                localStorage.setItem("token", loginData.access);
+
+                try {
+                    const decoded = jwt_decode(loginData.access);
+                    if (decoded?.email) {
+                        localStorage.setItem("userEmail", decoded.email);
+                    } else {
+                        localStorage.setItem("userEmail", email);
+                    }
+                } catch {
+                    localStorage.setItem("userEmail", email);
+                }
+
+                alert("Registration & auto-login successful!");
+                window.location.href = "booking.html";
             } catch (error) {
                 console.error(error);
                 errorMsg.textContent = 'Network error. Please try again.';

@@ -87,15 +87,20 @@
 
   document.addEventListener('DOMContentLoaded', async () => {
     const bookingInfo = JSON.parse(localStorage.getItem('bookingInfo') || '{}');
-    if (!bookingInfo.id || !bookingInfo.email) {
+    const storedEmail = localStorage.getItem("userEmail");
+
+    if (!bookingInfo.id) {
       alert('No booking info found. Please book a property first.');
       window.location.href = 'booking.html';
       return;
     }
 
+    // ✅ Use booking email if available, else fallback to logged-in user email
+    const tenantEmail = bookingInfo.email || storedEmail;
+
     document.getElementById('bookingDetails').style.display = 'block';
     document.getElementById('bookingId').textContent = bookingInfo.id;
-    document.getElementById('tenantEmail').textContent = bookingInfo.email;
+    document.getElementById('tenantEmail').textContent = tenantEmail;
 
     try {
       const propRes = await fetch(`${API_BASE}/properties/${bookingInfo.property}/`);
@@ -106,6 +111,10 @@
     } catch (err) {
       console.warn('Could not fetch property price:', err);
     }
+
+    // Store email back in bookingInfo for consistency
+    bookingInfo.email = tenantEmail;
+    localStorage.setItem("bookingInfo", JSON.stringify(bookingInfo));
   });
 
   document.getElementById('paymentForm').addEventListener('submit', async (e) => {
@@ -124,7 +133,6 @@
     statusEl.textContent = 'Waiting for M-Pesa payment...';
 
     try {
-      // Initiate STK Push via Node server
       const res = await fetch(`${NODE_BASE}/initiate-payment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -132,8 +140,8 @@
           phoneNumber,
           amount,
           bookingId: bookingInfo.id,
-          email: bookingInfo.email,
-          token // forward JWT so Node can use it to update Django
+          email: bookingInfo.email,  // ✅ always correct email now
+          token
         })
       });
 
@@ -143,9 +151,7 @@
       console.log('STK Push Response:', data);
 
       statusEl.textContent = 'STK Push sent! Please complete payment on your phone.';
-
       alert('Once you confirm payment on your phone, our system will update automatically.');
-
     } catch (err) {
       console.error(err);
       statusEl.textContent = 'Payment failed. Please try again.';

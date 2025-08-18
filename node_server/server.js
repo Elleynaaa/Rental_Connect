@@ -50,10 +50,13 @@ async function getAccessToken() {
   const res = await axios.get(url, {
     headers: { Authorization: `Basic ${auth}` }
   });
+
+  console.log("✅ Access Token App Key/Secret used:", process.env.MPESA_LIPA_KEY, process.env.MPESA_LIPA_SECRET);
   return res.data.access_token;
 }
 
-// M-Pesa: Initiate STK Push (now includes bookingId + email)
+
+// M-Pesa: Initiate STK Push (now includes boo)
 async function initiateStkPush(phoneNumber, amount, bookingId, email) {
   const token = await getAccessToken();
   const { password, timestamp } = generateMpesaPassword();
@@ -67,10 +70,12 @@ async function initiateStkPush(phoneNumber, amount, bookingId, email) {
     PartyA: phoneNumber,
     PartyB: process.env.MPESA_LIPA_SHORTCODE,
     PhoneNumber: phoneNumber,
-    CallBackURL: process.env.MPESA_CALLBACK_URL || 'http://localhost:3000/callback',
-    AccountReference: `BOOKING_${bookingId}_${email}`,   // Embed bookingId + email here
+    CallBackURL: process.env.MPESA_CALLBACK_URL,
+    AccountReference: `BOOKING_${bookingId}_${email}`,
     TransactionDesc: 'Payment for room booking',
   };
+
+  console.log("👉 Sending STK Payload:", payload);
 
   const res = await axios.post(
     'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest',
@@ -115,18 +120,35 @@ Your Hotel Name`
   }
 });
 
-// Initiate M-Pesa payment (now includes bookingId + email)
+// Initiate M-Pesa payment (validate tenant email via Django)
 app.post('/initiate-payment', async (req, res) => {
   try {
-    const { phoneNumber, amount, bookingId, email } = req.body;
+    const { phoneNumber, amount, bookingId, email, token } = req.body;
 
-    const paymentResponse = await initiateStkPush(phoneNumber, amount, bookingId, email);
+    // ✅ Step 1: Verify tenant with Django using JWT token
+    let verifiedEmail = email;
+    if (token) {
+      try {
+        const verifyRes = await axios.get(
+          'http://127.0.0.1:8000/api/tenants/', // adjust to /api/user/profile/ if you have it
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
 
-    // Return response (with booking reference info included)
+        if (verifyRes.data && verifyRes.data.length > 0) {
+          verifiedEmail = verifyRes.data[0].user.email;
+        }
+      } catch (err) {
+        console.warn('⚠️ Could not verify tenant from Django, falling back to provided email');
+      }
+    }
+
+    // ✅ Step 2: Proceed with STK push using the verified email
+    const paymentResponse = await initiateStkPush(phoneNumber, amount, bookingId, verifiedEmail);
+
     res.json({
       ...paymentResponse,
       bookingId,
-      email
+      email: verifiedEmail
     });
   } catch (error) {
     console.error('STK Push error:', error?.response?.data || error.message);
