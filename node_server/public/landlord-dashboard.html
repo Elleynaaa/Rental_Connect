@@ -128,7 +128,7 @@
     document.getElementById('propertyForm')?.addEventListener('submit', async e => {
         e.preventDefault();
         const payload = {
-            name: document.getElementById('name').value,
+            name: document.getElementById('name').value.trim(),
             description: document.getElementById('description').value,
             price_per_month: document.getElementById('price').value,
             image_url: document.getElementById('image').value

@@ -16,6 +16,13 @@ class PropertySerializer(serializers.ModelSerializer):
     class Meta:
         model = Property
         fields = '__all__'
+        extra_kwargs = {
+            'name': {'required': True},
+            'description': {'required': False, 'allow_blank': True},
+            'price_per_month': {'required': True},
+            'image_url': {'required': False, 'allow_blank': True},
+            'approved': {'read_only': True},
+        }
 
 
 class BookingSerializer(serializers.ModelSerializer):
