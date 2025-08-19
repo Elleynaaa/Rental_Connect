@@ -8,5 +8,5 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Add custom claims
         token['email'] = user.email
         token['username'] = user.username
-
+        token['role'] = getattr(user.profile, 'role', 'tenant')
         return token

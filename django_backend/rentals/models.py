@@ -1,14 +1,39 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+
+# Extend User with roles
+class UserProfile(models.Model):
+    ROLE_CHOICES = (
+        ("tenant", "Tenant"),
+        ("landlord", "Landlord"),
+        ("admin", "Admin"),
+    )
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="tenant")
+
+    def __str__(self):
+        return f"{self.user.username} ({self.role})"
+
+
 class Property(models.Model):
+    landlord = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="properties",
+        limit_choices_to={"profile__role": "landlord"},
+        null=True,
+        blank=True,
+    )
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     price_per_month = models.DecimalField(max_digits=10, decimal_places=2)
     image_url = models.URLField(blank=True)
+    approved = models.BooleanField(default=False)  # admin approval flag
 
     def __str__(self):
         return self.name
+
 
 class Tenant(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
@@ -16,6 +41,7 @@ class Tenant(models.Model):
 
     def __str__(self):
         return f"{self.user.first_name} {self.user.last_name}" if self.user else "No User"
+
 
 class Booking(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)
@@ -28,14 +54,13 @@ class Booking(models.Model):
     def __str__(self):
         return f"Booking for {self.tenant} - {self.property}"
 
+
 class Payment(models.Model):
-    # existing fields
     booking = models.ForeignKey(Booking, on_delete=models.CASCADE, null=True, blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     payment_date = models.DateTimeField(auto_now_add=True)
-    payment_status = models.CharField(max_length=50, default="Pending")  # e.g. Pending, Completed
+    payment_status = models.CharField(max_length=50, default="Pending")
 
-    # new fields to capture M-Pesa info
     mpesa_receipt = models.CharField(max_length=50, blank=True, null=True)
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     result_code = models.IntegerField(blank=True, null=True)

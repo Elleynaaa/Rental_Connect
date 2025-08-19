@@ -1,10 +1,10 @@
 from django.apps import AppConfig
 
-
 class RentalsConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
-    name = 'rentals'
+    name = "rentals"
 
     def ready(self):
+        # Import signals so they are registered
         import rentals.signals
     

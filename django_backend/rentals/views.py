@@ -1,4 +1,4 @@
-from rest_framework import generics, filters
+from rest_framework import generics, filters, permissions
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.utils import timezone
@@ -6,37 +6,91 @@ from django.contrib.auth.models import User
 from django.views.decorators.http import require_http_methods
 import json
 from datetime import datetime
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from .models import Property, Booking, Payment, Tenant
+from .models import Property, Booking, Payment, Tenant, UserProfile
 from .serializers import (
     PropertySerializer, BookingSerializer, PaymentSerializer,
-    TenantSerializer, UserRegistrationSerializer
+    TenantSerializer, UserRegistrationSerializer, BookingDashboardSerializer
 )
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .tokens import CustomTokenObtainPairSerializer
+from .permissions import IsLandlord, IsAdmin
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
-    
+
+
+# Anyone can list properties (only approved ones)
 class PropertyList(generics.ListAPIView):
     queryset = Property.objects.all()
     serializer_class = PropertySerializer
+
+
+# Landlord can create properties
+class LandlordPropertyListCreate(generics.ListCreateAPIView):
+    serializer_class = PropertySerializer
+    authentication_classes = [JWTAuthentication]  # <-- add this
+    permission_classes = [permissions.IsAuthenticated, IsLandlord]
+
+    def get_queryset(self):
+        print("User:", self.request.user)
+        return Property.objects.filter(landlord=self.request.user)
+
+    def perform_create(self, serializer):
+        print("User:", self.request.user)
+        print("Is authenticated:", self.request.user.is_authenticated)
+        print("User profile exists:", hasattr(self.request.user, "profile"))
+        print("User role:", getattr(self.request.user.profile, "role", None))
+        serializer.save(landlord=self.request.user, approved=False)
+
+ 
+
+# Admin can approve properties
+class ApprovePropertyView(generics.UpdateAPIView):
+    queryset = Property.objects.all()
+    serializer_class = PropertySerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    def perform_update(self, serializer):
+        serializer.save(approved=True)
+
+    def post(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
+
+
 
 class BookingListCreate(generics.ListCreateAPIView):
     queryset = Booking.objects.all()
     serializer_class = BookingSerializer
 
+class LandlordBookingList(generics.ListAPIView):
+    serializer_class = BookingDashboardSerializer
+    permission_classes = [permissions.IsAuthenticated, IsLandlord]
+
+    def get_queryset(self):
+        return Booking.objects.filter(property__landlord=self.request.user)
+
+# For admin: all bookings
+class AdminBookingList(generics.ListAPIView):
+    serializer_class = BookingDashboardSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+
+    def get_queryset(self):
+        return Booking.objects.all()
 class PaymentCreate(generics.CreateAPIView):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
+
 
 class TenantListCreate(generics.ListCreateAPIView):
     queryset = Tenant.objects.all()
     serializer_class = TenantSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['user__email']
+
 
 class UserRegistrationView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -46,22 +100,6 @@ class UserRegistrationView(generics.CreateAPIView):
 @csrf_exempt
 @require_http_methods(["POST"])
 def payment_callback(request):
-    """
-    Receives forwarded M-Pesa callback data from Node and persists it in Payment,
-    and updates the corresponding Booking status.
-    Expected JSON:
-    {
-      "booking_id": int,
-      "email": str,
-      "result_code": int,
-      "result_desc": str,
-      "amount": number,
-      "mpesa_receipt": str,
-      "phone_number": str,
-      "transaction_date": "YYYYMMDDHHMMSS",
-      "raw_callback": {...original Safaricom JSON...}
-    }
-    """
     try:
         data = json.loads(request.body.decode('utf-8'))
 
@@ -75,7 +113,6 @@ def payment_callback(request):
         transaction_date = data.get("transaction_date")
         raw_callback = data.get("raw_callback")
 
-        # Parse Safaricom timestamp
         dt_parsed = None
         if transaction_date:
             try:
@@ -83,21 +120,17 @@ def payment_callback(request):
             except Exception:
                 dt_parsed = None
 
-        # Lookup Booking via booking_id and tenant email
         try:
             booking = Booking.objects.get(id=booking_id, tenant__user__email=email)
         except Booking.DoesNotExist:
             return JsonResponse({"error": "Booking not found"}, status=404)
 
-        # Determine status
         status = "Paid" if result_code == 0 else "Failed"
 
-        # Update booking status if payment successful
         if status == "Paid":
             booking.status = "Paid"
             booking.save()
 
-        # Save Payment record linked to the booking
         Payment.objects.create(
             booking=booking,
             amount=amount or 0,

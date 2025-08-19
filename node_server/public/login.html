@@ -54,7 +54,7 @@
 
     <!-- Login Form -->
     <div class="form-container">
-        <h2>Tenant Login</h2>
+        <h2>Login</h2>
         <div id="errorMsg" class="error-message"></div>
 
         <form id="loginForm">
@@ -90,14 +90,11 @@
                 return;
             }
 
-            const payload = { username: email, password };
-
             try {
-                // Use your new token endpoint
                 const response = await fetch('http://127.0.0.1:8000/api/token/', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({ username: email, password })
                 });
 
                 if (!response.ok) {
@@ -107,23 +104,27 @@
                 }
 
                 const data = await response.json();
-
-                // Save access token
                 const token = data.access;
+                console.log("JWT Token:", token);
                 localStorage.setItem('token', token);
 
-                // Decode token to extract email (thanks to custom claim)
+                // Decode JWT to get email and role
+                let role = 'tenant'; // fallback
                 try {
                     const decoded = jwt_decode(token);
-                    if (decoded.email) {
-                        localStorage.setItem('userEmail', decoded.email);
-                    }
+                    localStorage.setItem('userEmail', decoded?.email || email);
+                    role = decoded?.role || 'tenant';
                 } catch (err) {
                     console.error("Failed to decode token", err);
+                    localStorage.setItem('userEmail', email);
                 }
+                localStorage.setItem('userRole', role);
 
-                alert('Login successful!');
-                window.location.href = 'booking.html';
+                alert('Login successful! Redirecting...');
+                // Role-based redirect
+                if (role === 'tenant') window.location.href = 'booking.html';
+                else if (role === 'landlord') window.location.href = 'landlord-dashboard.html';
+                else if (role === 'admin') window.location.href = 'admin-dashboard.html';
 
             } catch (error) {
                 console.error(error);
@@ -131,6 +132,7 @@
             }
         });
     </script>
+
 
 </body>
 </html>
